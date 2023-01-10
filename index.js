@@ -10,7 +10,7 @@ const port = 8000;
 const client = new Client({
     user: process.env.DB_USERNAME,
     host: process.env.DB_HOST,
-    database: process.env.DB_NAME, 
+    database: process.env.DB_NAME,
     password: process.env.DB_PASSWORD,
     port: 5432,
 });
@@ -48,7 +48,7 @@ app.get('/api/tickets', async (req, res) => {
 
         res.status(200).json(
             {
-                status: 'OK',
+                status: 'ok',
                 message: 'liste des tickets',
                 data: data.rows,
             });
@@ -67,7 +67,19 @@ app.get('/api/tickets', async (req, res) => {
 
 app.get('/api/tickets/:id', async (req, res) => {
     console.log(req.params)
-    const id = req.params.id;
+    const id = parseInt(req.params.id);
+
+    if (isNaN(id) == true) {
+        res.status(406).json(
+            {
+                status: "fail",
+                data: null,
+                message: "entrer un nombre",
+            }
+        )
+
+        return;
+    }
 
     try {
         const data = await client.query('SELECT * FROM tickets where id = $1', [id]);
@@ -76,7 +88,7 @@ app.get('/api/tickets/:id', async (req, res) => {
             res.status(200).json(
                 {
                     status: "ok",
-                    data: data.rows,
+                    data: data.rows[0],
 
                 }
             )
@@ -113,7 +125,7 @@ app.post('/api/tickets', async (req, res) => {
                 {
                     status: "ok",
                     message: "ticket créé",
-                    data: data.rows
+                    data: data.rows[0]
                 }
             )
 
@@ -141,26 +153,30 @@ app.post('/api/tickets', async (req, res) => {
 
 app.delete('/api/tickets/:id', async (req, res) => {
     console.log(req.params);
-    const id = req.params.id;
+    const id = parseInt(req.params.id);
+
     if (isNaN(id) == true) {
         res.status(406).json(
             {
-                status:"fail",
+                status: "fail",
+                data: null,
                 message: "entrer un nombre",
             }
         )
+
+        return;
     }
+
     try {
         const data = await client.query('DELETE FROM tickets WHERE id = $1', [id]);
 
         if (data.rowCount === 1) {
             res.status(200).json(
                 {
-                    status: "ok deleted",
+                    status: "ok",
+                    data: id,
                     message: "ticket effacé",
                 });
-
-
         }
         else {
             res.status(404).json(
@@ -169,9 +185,7 @@ app.delete('/api/tickets/:id', async (req, res) => {
                     message: "id ticket invalide"
                 });
         }
-
-    
-}
+    }
     catch (err) {
         res.status(500).json(
             {
@@ -183,36 +197,50 @@ app.delete('/api/tickets/:id', async (req, res) => {
     };
 })
 
-app.put('/api/tickets/:id', async (req, res) => {
+app.put('/api/tickets', async (req, res) => {
     console.log(req.params);
-    const id = req.params.id;
-    const {message, done} = req.body ;
+    const { id, message, done } = req.body;
     console.log(message, done);
-    
-    try{
-        const ticket = await client.query('SELECT * FROM tickets WHERE id = $1', [id]);
-    
-        const data = await client.query('UPDATE tickets SET done = $2 WHERE id = $1 RETURNING *', [id, done]);
+
+    if (isNaN(id) == true) {
+        res.status(406).json(
+            {
+                status: "fail",
+                data: null,
+                message: "entrer un nombre",
+            }
+        )
+
+        return;
+    }
+
+    try {
+        const data = await client.query('UPDATE tickets SET message = $3, done = $2 WHERE id = $1 RETURNING *', [id, done, message]);
+
         if (data.rowCount === 1) {
             res.status(201).json(
                 {
                     status: "succes",
                     data: data.rows[0]
                 });
-    }
-    else {
-        res.json({ done: false })
-    }
-}
-catch (err) {
-    res.status(500).json(
-        {
-            status: "fail",
-            message: "erreur serveur"
         }
-    )
-    console.log(err.stack)
-}
+        else {
+            res.status(404).json(
+                {
+                    status: "fail",
+                    message: "id ticket invalide"
+                });
+        }
+    }
+    catch (err) {
+        res.status(500).json(
+            {
+                status: "fail",
+                message: "erreur serveur"
+            }
+        )
+        console.log(err.stack)
+    }
 })
 
 // ecoute le port 8000
